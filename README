@@ -1,0 +1,28 @@
+This burp extension implements some passive scanner checks which are
+missing in Burp suite:
+
+* DOM-based XSS (REs are based on those from https://code.google.com/p/domxsswiki/wiki/FindingDOMXSS)
+
+TODO
+====
+
+* See TODO markers in the code.
+
+* Missing HTTP headers:
+
+  * Strict-Transport-Security
+
+  * X-Content-Type-Options: nosniff
+
+  * X-XSS-Protection
+
+* Multiple occurrences of the checked headers.
+
+* Active scanner check: Actively test directories for listings
+
+* Active scanner check: Add parameters like debug, admin, test etc. and check if something
+  interesting appears on the page.
+
+* Configuration tab which allows to disable particular checks
+
+* Config: (de)activate DOMXSS source/sink/jQuery-sink detection
