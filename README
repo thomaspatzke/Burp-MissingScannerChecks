@@ -3,6 +3,16 @@ missing in Burp suite:
 
 * DOM-based XSS (REs are based on those from https://code.google.com/p/domxsswiki/wiki/FindingDOMXSS)
 
+* Missing HTTP headers:
+
+  * Strict-Transport-Security
+
+  * X-Content-Type-Options: nosniff
+
+* Multiple occurrences of the checked headers.
+
+* Redirection from HTTP to HTTPS
+
 TODO
 ====
 
@@ -10,13 +20,9 @@ TODO
 
 * Missing HTTP headers:
 
-  * Strict-Transport-Security
-
-  * X-Content-Type-Options: nosniff
-
   * X-XSS-Protection
 
-* Multiple occurrences of the checked headers.
+* Further possibilities to redirect from HTTP to HTTPS (meta refresh, links, referer checking)
 
 * Active scanner check: Actively test directories for listings
 
