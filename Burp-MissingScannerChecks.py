@@ -27,6 +27,7 @@ issueTypeDOMXSS = 2097930
 issueTypeSTS = 5245380
 issueTypeXCTO = 8389890
 issueTypeRedirectFromHTTP2HTTPS = 5244500
+issueTypeXXP = 5245361
 
 class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
     def registerExtenderCallbacks(self, callbacks):
@@ -104,7 +105,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
 
         if requestProtocol != "https":
             pass                          # HSTS only valid in HTTPS responses.
-        elif len(headersSTS) == 0:        #No HSTS header
+        elif len(headersSTS) == 0:        # No HSTS header
             scanIssues.append(STSScanIssue(
                 baseRequestResponse,
                 STSScanIssue.caseNoHeader,
@@ -137,6 +138,33 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
                 self.helpers,
                 self.callbacks                
                 ))
+
+        if len(headersXXP) == 0:          # No XSS protection header
+            scanIssues.append(XXPScanIssue(
+                baseRequestResponse,
+                XXPScanIssue.caseNoHeader,
+                None,
+                self.helpers,
+                self.callbacks
+                ))
+        elif len(headersXXP) == 1 and int(headersXXP[0][0].group(1)) == 1 and headersXXP[0][0].group(1) != "block":          # Activated but not in block mode
+            scanIssues.append(XXPScanIssue(
+                baseRequestResponse,
+                XXPScanIssue.caseNoBlockMode,
+                headersXXP,
+                self.helpers,
+                self.callbacks
+                ))
+        elif len(headersXXP) > 1:          # Multiple XXP headers
+            scanIssues.append(XXPScanIssue(
+                baseRequestResponse,
+                XXPScanIssue.caseMultipleHeaders,
+                headersXXP,
+                self.helpers,
+                self.callbacks
+                ))
+            # "X-XSS-Protection: 0" already catched by Burp
+            
 
         # X-Content-Type-Options missing
         # NOTE: it is assumed that multiple "X-Content-Type-Options: nosniff" headers can't cause confusion at browser side because they all have the same meaning.
@@ -370,6 +398,78 @@ class RedirectFromHTTP2HTTPSScanIssue(IScanIssue):
 
     def getRemediationDetail(self):
         return None
+
+    def getHttpMessages(self):
+        return [self.requestResponse]
+
+    def getHttpService(self):
+        return self.requestResponse.getHttpService()
+
+
+class XXPScanIssue(IScanIssue):
+    caseNoHeader = 1
+    caseNoBlockMode = 2
+    caseMultipleHeaders = 3
+    
+    def __init__(self, requestResponse, case, headers, helpers, callbacks):
+        analyzedRequest = helpers.analyzeRequest(requestResponse)
+        self.findingUrl = analyzedRequest.getUrl()
+        self.case = case
+        self.headers = headers
+        if case == self.caseNoHeader:
+            self.requestResponse = requestResponse
+        elif case == self.caseNoBlockMode:
+            self.requestResponse = callbacks.applyMarkers(requestResponse, None, [array('i', (headers[0][1], headers[0][1] + headers[0][0].end(0)))])
+        elif case == self.caseMultipleHeaders:
+            self.requestResponse = callbacks.applyMarkers(requestResponse, None, normalizePositions(extractMatchPositions(headers)))
+
+    def getUrl(self):
+        return self.findingUrl
+
+    def getIssueName(self):
+        return "Browser cross-site scripting filter misconfiguration"
+
+    def getIssueType(self):
+        return issueTypeXXP
+
+    def getSeverity(self):
+        return "Low"
+
+    def getConfidence(self):
+        return "Certain"
+
+    def getIssueBackground(self):
+        return "Cross-site scripting (XSS) filters in browsers check if the URL contains possible harmful XSS payloads and if they are reflected in the response page. If \
+        such a condition is recognized, the injected code is changed in a way, that it is not executed anymore to prevent a succesful XSS attack. The downside of these filters \
+        is, that the browser has no possibility to distinguish between code fragments which were reflected by a vulnerable web application in an XSS attack and these which are \
+        already present on the page. In the past, these filters were used by attackers to deactivate JavaScript code on the attacked web page. Sometimes the XSS filters itself are \
+        vulnerable in a way, that web applications which were protected properly against XSS attacks became vulnerable under certain conditions."
+
+    def getRemediationBackground(self):
+        return "It is considered as better practice to instruct the browser XSS filter to never render the web page if an XSS attack is detected."
+
+    def getIssueDetail(self):
+        msg = None
+        if self.case == self.caseNoHeader:
+            msg = "No X-XSS-Protection header was set in the response. This means that the browser uses default behaviour that detection of a cross-site scripting attack never prevents rendering."
+        elif self.case == self.caseNoBlockMode:
+            msg = "A X-XSS-Protection header is set and XSS protection is enabled, but blocking mode is not set."
+        elif self.case == self.caseMultipleHeaders:
+            msg = "Multiple occurrences of the \"X-XSS-Protection\" header were seen in the HTTP response. This could cause undefined behaviour with browsers, \
+            because it is unclear, which header is used."
+        return msg
+
+    def getRemediationDetail(self):
+        msg = None
+        if self.case == self.caseNoHeader:
+            msg = "<p>The following header should be set:</p> \
+            <p><pre>X-XSS-Protection: 1; mode=block</pre></p>"
+        elif self.case == self.caseNoBlockMode:
+            msg = "<p>Set the option \"mode=block\" in the X-XSS-Protection HTTP header as follows:</p> \
+            <p><pre>X-XSS-Protection: 1; mode=block</pre></p>"
+        elif self.case == self.caseMultipleHeaders:
+            msg = "There should be only one X-XSS-Protection header present."
+        return msg
 
     def getHttpMessages(self):
         return [self.requestResponse]

@@ -9,6 +9,8 @@ missing in Burp suite:
 
   * X-Content-Type-Options: nosniff
 
+  * X-XSS-Protection
+
 * Multiple occurrences of the checked headers.
 
 * Redirection from HTTP to HTTPS
@@ -18,16 +20,15 @@ TODO
 
 * See TODO markers in the code.
 
-* Missing HTTP headers:
-
-  * X-XSS-Protection
-
 * Further possibilities to redirect from HTTP to HTTPS (meta refresh, links, referer checking)
 
 * Active scanner check: Actively test directories for listings
 
 * Active scanner check: Add parameters like debug, admin, test etc. and check if something
   interesting appears on the page.
+
+* Active Scanner check: Reaction of the web application and server to
+  requests with different/missing host headers.
 
 * Configuration tab which allows to disable particular checks
 
