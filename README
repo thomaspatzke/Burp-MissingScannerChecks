@@ -30,6 +30,4 @@ TODO
 * Active Scanner check: Reaction of the web application and server to
   requests with different/missing host headers.
 
-* Configuration tab which allows to disable particular checks
-
-* Config: (de)activate DOMXSS source/sink/jQuery-sink detection
+* Store configuration

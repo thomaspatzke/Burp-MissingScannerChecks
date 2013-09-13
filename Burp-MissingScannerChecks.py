@@ -18,24 +18,95 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from burp import (IBurpExtender, IScannerCheck, IScanIssue)
+from burp import (IBurpExtender, IScannerCheck, IScanIssue, ITab)
+from javax.swing import (GroupLayout, JPanel, JCheckBox, JTextField, JLabel)
 from array import array
 import re
 
-STSMinimum = 60 * 60 * 24 * 90            # Minimum for Strict Transport Security: 90 days (TODO: make configurable)
+STSMinimum = 60 * 60 * 24 * 90            # Minimum for Strict Transport Security: 90 days
 issueTypeDOMXSS = 2097930
 issueTypeSTS = 5245380
 issueTypeXCTO = 8389890
 issueTypeRedirectFromHTTP2HTTPS = 5244500
 issueTypeXXP = 5245361
 
-class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
+class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
     def registerExtenderCallbacks(self, callbacks):
         self.callbacks = callbacks
         self.helpers = callbacks.getHelpers()
         callbacks.setExtensionName("Missing Scanner Checks")
         self.out = callbacks.getStdout()
-        callbacks.registerScannerCheck(self)
+
+        # define all checkboxes
+        self.cbPassiveChecks = self.defineCheckBox("Passive Scanner Checks")
+        self.cbDOMXSS = self.defineCheckBox("DOM XSS")
+        self.cbDOMXSSSources = self.defineCheckBox("Sources", False)
+        self.cbDOMXSSSinks = self.defineCheckBox("Sinks")
+        self.cbDOMXSSjQuerySinks = self.defineCheckBox("jQuery Sinks", False)
+        self.grpDOMXSSSettings = JPanel()
+        self.grpDOMXSSSettings.add(self.cbDOMXSSSources)
+        self.grpDOMXSSSettings.add(self.cbDOMXSSSinks)
+        self.grpDOMXSSSettings.add(self.cbDOMXSSjQuerySinks)
+        self.cbSTS = self.defineCheckBox("Strict Transport Security")
+        self.lblSTSMin = JLabel("Minimum acceptable max-age")
+        self.inSTSMin = JTextField(str(STSMinimum), 9, actionPerformed=self.setSTSMinimum) # TODO: actionPerformed only fires on enter key - focus lost would be better
+        self.inSTSMin.setToolTipText("Enter the minimum max-age value which is considered as acceptable. Press return to change setting!")
+        self.grpSTSSettings = JPanel()
+        self.grpSTSSettings.add(self.lblSTSMin)
+        self.grpSTSSettings.add(self.inSTSMin)
+        self.cbXCTO = self.defineCheckBox("Content Sniffing")
+        self.cbXXP = self.defineCheckBox("Client-side XSS Filter Configuration")
+        self.cbRedirToHTTPS = self.defineCheckBox("Redirection from HTTP to HTTPS")
+        self.cbActiveChecks = self.defineCheckBox("Active Scanner Checks", True, False)
+        self.cbPrivParam = self.defineCheckBox("Privilege Escalation parameters", True, False)
+        self.cbHostHeader = self.defineCheckBox("Host Header", True, False)
+
+        # definition of config tab
+        self.tab = JPanel()
+        layout = GroupLayout(self.tab)
+        self.tab.setLayout(layout)
+        layout.setAutoCreateGaps(True)
+        layout.setAutoCreateContainerGaps(True)
+        layout.setHorizontalGroup(
+            layout.createSequentialGroup()
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.cbPassiveChecks)
+                      .addComponent(self.cbActiveChecks)
+                      )
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.cbDOMXSS)
+                      .addComponent(self.cbSTS)
+                      .addComponent(self.cbXCTO)
+                      .addComponent(self.cbXXP)
+                      .addComponent(self.cbRedirToHTTPS)
+                      .addComponent(self.cbPrivParam)
+                      .addComponent(self.cbHostHeader)
+                      )
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.grpDOMXSSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
+                      .addComponent(self.grpSTSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
+                      )
+            )
+        layout.setVerticalGroup(
+            layout.createSequentialGroup()
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.cbPassiveChecks)
+                      .addComponent(self.cbDOMXSS)
+                      .addComponent(self.grpDOMXSSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
+                      )
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.cbSTS)
+                      .addComponent(self.grpSTSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
+                      )
+            .addComponent(self.cbXCTO)
+            .addComponent(self.cbXXP)
+            .addComponent(self.cbRedirToHTTPS)
+            .addGroup(layout.createParallelGroup()
+                      .addComponent(self.cbActiveChecks)
+                      .addComponent(self.cbPrivParam)
+                      )
+            .addComponent(self.cbHostHeader)
+            )
 
         self.domXSSSourcesRE = re.compile("(location\s*[\[.])|([.\[]\s*[\"']?\s*(arguments|dialogArguments|innerHTML|write(ln)?|open(Dialog)?|showModalDialog|cookie|URL|documentURI|baseURI|referrer|name|opener|parent|top|content|self|frames)\W)|(localStorage|sessionStorage|Database)")
         # NOTE: done some optimizations here, original RE caused too much noise
@@ -48,8 +119,33 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
         self.headerXXP = re.compile("^X-XSS-Protection:\s*(\d)(?:\s*;\s*mode\s*=\s*\"?(block)\"?)?", re.I)
         self.headerLocationHTTPS = re.compile("^(?:Content-)?Location:\s*(https://.*)$", re.I)
 
+        callbacks.registerScannerCheck(self)
+        callbacks.addSuiteTab(self)
+
+    def defineCheckBox(self, caption, selected=True, enabled=True):
+        checkBox = JCheckBox(caption)
+        checkBox.setSelected(selected)
+        checkBox.setEnabled(enabled)
+        return checkBox
+
+    def setSTSMinimum(self, e):
+        val = self.inSTSMin.text
+        if re.match("^\d+$", val):
+            STSMinimum = int(val)
+        else:
+            self.inSTSMin.setText(str(STSMinimum))   # TODO: doesn't works as desired
+        
+    ### ITab ###
+    def getTabCaption(self):
+        return("Additional Scanner Checks")
+
+    def getUiComponent(self):
+        return self.tab
+
     ### IScannerCheck ###
     def doPassiveScan(self, baseRequestResponse):
+        if not self.cbPassiveChecks.isSelected():
+            return None
         scanIssues = list()
         requestProtocol = baseRequestResponse.getHttpService().getProtocol()
         analyzedResponse = self.helpers.analyzeResponse(baseRequestResponse.getResponse())
@@ -58,23 +154,31 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
         responseBody = baseRequestResponse.getResponse()[analyzedResponse.getBodyOffset():].tostring()
 
         # Identify DOMXSS sources and sinks
-        domXSSSources = self.domXSSSourcesRE.finditer(responseBody)
-        domXSSSinks = self.domXSSSinksRE.finditer(responseBody)
-        domXSSjQuerySinks = self.domXSSjQuerySinksRE.finditer(responseBody)
+        domXSSSources = list()
+        domXSSSinks = list()
+        domXSSjQuerySinks = list()
+        
+        if self.cbDOMXSS.isSelected():
+            if self.cbDOMXSSSources.isSelected():
+                domXSSSources = self.domXSSSourcesRE.finditer(responseBody)
+            if self.cbDOMXSSSinks.isSelected():
+                domXSSSinks = self.domXSSSinksRE.finditer(responseBody)
+            if self.cbDOMXSSjQuerySinks.isSelected():
+                domXSSjQuerySinks = self.domXSSjQuerySinksRE.finditer(responseBody)
 
-        domXSSSourcesPos = extractMatchPositions(domXSSSources, bodyOffset)
-        domXSSSinksPos = extractMatchPositions(domXSSSinks, bodyOffset)
-        domXSSjQuerySinksPos = extractMatchPositions(domXSSjQuerySinks, bodyOffset)
+            domXSSSourcesPos = extractMatchPositions(domXSSSources, bodyOffset)
+            domXSSSinksPos = extractMatchPositions(domXSSSinks, bodyOffset)
+            domXSSjQuerySinksPos = extractMatchPositions(domXSSjQuerySinks, bodyOffset)
 
-        if len(domXSSSourcesPos) + len(domXSSSinksPos) + len(domXSSjQuerySinksPos) > 0: # One of the DOMXSS REs matched
-            scanIssues.append(DOMXSSScanIssue(
-                baseRequestResponse,
-                domXSSSourcesPos,
-                domXSSSinksPos,
-                domXSSjQuerySinksPos,
-                self.helpers,
-                self.callbacks
-                ))
+            if len(domXSSSourcesPos) + len(domXSSSinksPos) + len(domXSSjQuerySinksPos) > 0: # One of the DOMXSS REs matched
+                scanIssues.append(DOMXSSScanIssue(
+                    baseRequestResponse,
+                    domXSSSourcesPos,
+                    domXSSSinksPos,
+                    domXSSjQuerySinksPos,
+                    self.helpers,
+                    self.callbacks
+                    ))
 
         # Identify missing, wrong or multiple occurring HTTP headers
         headersSTS = list()
@@ -84,19 +188,22 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
 
         offset = 0
         for header in responseHeaders:
-            match = self.headerSTSRE.match(header)
-            if match:
-                headersSTS.append((match, offset))
+            if self.cbSTS.isSelected():
+                match = self.headerSTSRE.match(header)
+                if match:
+                    headersSTS.append((match, offset))
 
-            match = self.headerXCTORE.match(header)
-            if match:
-                headersXCTO.append(match)
+            if self.cbXCTO.isSelected():
+                match = self.headerXCTORE.match(header)
+                if match:
+                    headersXCTO.append(match)
 
-            match = self.headerXXP.match(header)
-            if match:
-                headersXXP.append((match, offset))
+            if self.cbXXP.isSelected():
+                match = self.headerXXP.match(header)
+                if match:
+                    headersXXP.append((match, offset))
 
-            if requestProtocol == 'http':
+            if self.cbRedirToHTTPS.isSelected() and requestProtocol == 'http':
                 match = self.headerLocationHTTPS.match(header)
                 if match:
                     headersLocationHTTPS.append((match, offset))
@@ -105,33 +212,34 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
 
         if requestProtocol != "https":
             pass                          # HSTS only valid in HTTPS responses.
-        elif len(headersSTS) == 0:        # No HSTS header
-            scanIssues.append(STSScanIssue(
-                baseRequestResponse,
-                STSScanIssue.caseNoHeader,
-                None,
-                self.helpers,
-                self.callbacks
-                ))
-        elif len(headersSTS) == 1 and int(headersSTS[0][0].group(1)) < STSMinimum: # HSTS header present, but time frame too short
-            scanIssues.append(STSScanIssue(
-                baseRequestResponse,
-                STSScanIssue.caseTooLow,
-                (int(headersSTS[0][0].group(1)), headersSTS[0][1] + headersSTS[0][0].start(1), headersSTS[0][1] + headersSTS[0][0].end(1)),
-                self.helpers,
-                self.callbacks
-                ))
-        elif len(headersSTS) > 1:         # multiple HSTS headers
-            scanIssues.append(STSScanIssue(
-                baseRequestResponse,
-                STSScanIssue.caseMultipleHeaders,
-                headersSTS,
-                self.helpers,
-                self.callbacks
-                ))
+        elif self.cbSTS.isSelected():
+            if len(headersSTS) == 0:        # No HSTS header
+                scanIssues.append(STSScanIssue(
+                    baseRequestResponse,
+                    STSScanIssue.caseNoHeader,
+                    None,
+                    self.helpers,
+                    self.callbacks
+                    ))
+            elif len(headersSTS) == 1 and int(headersSTS[0][0].group(1)) < STSMinimum: # HSTS header present, but time frame too short
+                scanIssues.append(STSScanIssue(
+                    baseRequestResponse,
+                    STSScanIssue.caseTooLow,
+                    (int(headersSTS[0][0].group(1)), headersSTS[0][1] + headersSTS[0][0].start(1), headersSTS[0][1] + headersSTS[0][0].end(1)),
+                    self.helpers,
+                    self.callbacks
+                    ))
+            elif len(headersSTS) > 1:         # multiple HSTS headers
+                scanIssues.append(STSScanIssue(
+                    baseRequestResponse,
+                    STSScanIssue.caseMultipleHeaders,
+                    headersSTS,
+                    self.helpers,
+                    self.callbacks
+                    ))
 
         # Redirection from HTTP to HTTPS
-        if len(headersLocationHTTPS) > 0:
+        if self.cbRedirToHTTPS.isSelected() and len(headersLocationHTTPS) > 0:
             scanIssues.append(RedirectFromHTTP2HTTPSScanIssue(
                 baseRequestResponse,
                 headersLocationHTTPS,
@@ -139,36 +247,37 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue):
                 self.callbacks                
                 ))
 
-        if len(headersXXP) == 0:          # No XSS protection header
-            scanIssues.append(XXPScanIssue(
-                baseRequestResponse,
-                XXPScanIssue.caseNoHeader,
-                None,
-                self.helpers,
-                self.callbacks
-                ))
-        elif len(headersXXP) == 1 and int(headersXXP[0][0].group(1)) == 1 and headersXXP[0][0].group(1) != "block":          # Activated but not in block mode
-            scanIssues.append(XXPScanIssue(
-                baseRequestResponse,
-                XXPScanIssue.caseNoBlockMode,
-                headersXXP,
-                self.helpers,
-                self.callbacks
-                ))
-        elif len(headersXXP) > 1:          # Multiple XXP headers
-            scanIssues.append(XXPScanIssue(
-                baseRequestResponse,
-                XXPScanIssue.caseMultipleHeaders,
-                headersXXP,
-                self.helpers,
-                self.callbacks
-                ))
-            # "X-XSS-Protection: 0" already catched by Burp
+        if self.cbXXP.isSelected():
+            if len(headersXXP) == 0:          # No XSS protection header
+                scanIssues.append(XXPScanIssue(
+                    baseRequestResponse,
+                    XXPScanIssue.caseNoHeader,
+                    None,
+                    self.helpers,
+                    self.callbacks
+                    ))
+            elif len(headersXXP) == 1 and int(headersXXP[0][0].group(1)) == 1 and headersXXP[0][0].group(1) != "block":          # Activated but not in block mode
+                scanIssues.append(XXPScanIssue(
+                    baseRequestResponse,
+                    XXPScanIssue.caseNoBlockMode,
+                    headersXXP,
+                    self.helpers,
+                    self.callbacks
+                    ))
+            elif len(headersXXP) > 1:          # Multiple XXP headers
+                scanIssues.append(XXPScanIssue(
+                    baseRequestResponse,
+                    XXPScanIssue.caseMultipleHeaders,
+                    headersXXP,
+                    self.helpers,
+                    self.callbacks
+                    ))
+                # "X-XSS-Protection: 0" already catched by Burp
             
 
         # X-Content-Type-Options missing
         # NOTE: it is assumed that multiple "X-Content-Type-Options: nosniff" headers can't cause confusion at browser side because they all have the same meaning.
-        if len(headersXCTO) == 0:
+        if self.cbXCTO.isSelected() and len(headersXCTO) == 0:
             scanIssues.append(XCTOScanIssue(
                 baseRequestResponse,
                 self.helpers,
@@ -279,6 +388,7 @@ class STSScanIssue(IScanIssue):
         self.findingUrl = analyzedRequest.getUrl()
         self.case = case
         self.data = data
+        self.STSMinimum = STSMinimum
         if case == self.caseNoHeader:
             self.requestResponse = requestResponse
         elif case == self.caseTooLow:
@@ -332,12 +442,12 @@ class STSScanIssue(IScanIssue):
             msg = "<p>A Strict-Transport-Security HTTP header should be sent with each HTTPS response. The syntax is as follows:</p> \
             <p><pre>Strict-Transport-Security: max-age=&lt;seconds&gt;[; includeSubDomains]</pre></p> \
             <p>The parameter <i>max-age</i> gives the time frame for requirement of HTTPS in seconds and should be chosen quite high, e.g. several months.\
-            A value below " + str(STSMinimum) + " is considered as too low by this scanner check. \
+            A value below " + str(self.STSMinimum) + " is considered as too low by this scanner check. \
             The flag <i>includeSubDomains</i> defines that the policy applies also for sub domains of the sender of the response.</p>"
         elif self.case == self.caseTooLow:
-            msg = "The given time frame should be increased to a minimum of " + str(STSMinimum) + " seconds."
+            msg = "The given time frame should be increased to a minimum of " + str(self.STSMinimum) + " seconds."
         elif self.case == self.caseMultipleHeaders:
-            msg = "There should be only one header defining a strict transport security policy. The Time frame should be set at minimum to " + str(STSMinimum) + "."
+            msg = "There should be only one header defining a strict transport security policy. The Time frame should be set at minimum to " + str(self.STSMinimum) + "."
         return msg
 
     def getHttpMessages(self):
@@ -543,8 +653,10 @@ def normalizePositions(uPos):
 
 # extract match positions from an array of matches as expected by Burp for scan issue markers
 def extractMatchPositions(matches, bodyOffset = 0):
-    if isinstance(matches, list) and isinstance(matches[0], tuple):
-        return map(lambda(match, offset): array('i', (match.start() + bodyOffset + offset, match.end() + bodyOffset + offset)), matches)
-    else:
-        return map(lambda(match): array('i', (match.start() + bodyOffset, match.end() + bodyOffset)), matches)
-
+    try:
+        if isinstance(matches, list) and isinstance(matches[0], tuple):
+            return map(lambda(match, offset): array('i', (match.start() + bodyOffset + offset, match.end() + bodyOffset + offset)), matches)
+        else:
+            return map(lambda(match): array('i', (match.start() + bodyOffset, match.end() + bodyOffset)), matches)
+    except IndexError:
+        return list()
