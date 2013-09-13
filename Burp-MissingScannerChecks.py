@@ -19,9 +19,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from burp import (IBurpExtender, IScannerCheck, IScanIssue, ITab)
-from javax.swing import (GroupLayout, JPanel, JCheckBox, JTextField, JLabel)
+from javax.swing import (GroupLayout, JPanel, JCheckBox, JTextField, JLabel, JButton)
 from array import array
 import re
+import pickle
 
 STSMinimum = 60 * 60 * 24 * 90            # Minimum for Strict Transport Security: 90 days
 issueTypeDOMXSS = 2097930
@@ -60,6 +61,12 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
         self.cbActiveChecks = self.defineCheckBox("Active Scanner Checks", True, False)
         self.cbPrivParam = self.defineCheckBox("Privilege Escalation parameters", True, False)
         self.cbHostHeader = self.defineCheckBox("Host Header", True, False)
+        self.btnSave = JButton("Set as default", actionPerformed=self.saveConfig)
+        self.btnRestore = JButton("Restore", actionPerformed=self.restoreConfig)
+        self.grpConfig = JPanel()
+        self.grpConfig.add(self.btnSave)
+        self.grpConfig.add(self.btnRestore)
+        self.restoreConfig()
 
         # definition of config tab
         self.tab = JPanel()
@@ -85,6 +92,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
             .addGroup(layout.createParallelGroup()
                       .addComponent(self.grpDOMXSSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
                       .addComponent(self.grpSTSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
+                      .addComponent(self.grpConfig, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
                       )
             )
         layout.setVerticalGroup(
@@ -106,6 +114,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
                       .addComponent(self.cbPrivParam)
                       )
             .addComponent(self.cbHostHeader)
+            .addComponent(self.grpConfig, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
             )
 
         self.domXSSSourcesRE = re.compile("(location\s*[\[.])|([.\[]\s*[\"']?\s*(arguments|dialogArguments|innerHTML|write(ln)?|open(Dialog)?|showModalDialog|cookie|URL|documentURI|baseURI|referrer|name|opener|parent|top|content|self|frames)\W)|(localStorage|sessionStorage|Database)")
@@ -128,12 +137,52 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
         checkBox.setEnabled(enabled)
         return checkBox
 
-    def setSTSMinimum(self, e):
+    def setSTSMinimum(self, e=None):
         val = self.inSTSMin.text
         if re.match("^\d+$", val):
             STSMinimum = int(val)
         else:
             self.inSTSMin.setText(str(STSMinimum))   # TODO: doesn't works as desired
+
+    def saveConfig(self, e=None):
+        config = {
+            'passiveChecks': self.cbPassiveChecks.isSelected(),
+            'DOMXSS': self.cbDOMXSS.isSelected(),
+            'DOMXSSSources': self.cbDOMXSSSources.isSelected(),
+            'DOMXSSSinks': self.cbDOMXSSSinks.isSelected(),
+            'DOMXSSjQuerySinks': self.cbDOMXSSjQuerySinks.isSelected(),
+            'STS': self.cbSTS.isSelected(),
+            'STSMin': self.inSTSMin.text,
+            'XCTO': self.cbXCTO.isSelected(),
+            'XXP': self.cbXXP.isSelected(),
+            'RedirToHTTPS': self.cbRedirToHTTPS.isSelected(),
+            'ActiveChecks': self.cbActiveChecks.isSelected(),
+            'PrivParam': self.cbPrivParam.isSelected(),
+            'HostHeader': self.cbHostHeader.isSelected(),
+            }
+        self.callbacks.saveExtensionSetting("config", pickle.dumps(config))
+
+    def restoreConfig(self, e=None):
+        storedConfig = self.callbacks.loadExtensionSetting("config")
+        if storedConfig != None:
+            try:
+                config = pickle.loads(storedConfig)
+                self.cbPassiveChecks.setSelected(config['passiveChecks'])
+                self.cbDOMXSS.setSelected(config['DOMXSS'])
+                self.cbDOMXSSSources.setSelected(config['DOMXSSSources'])
+                self.cbDOMXSSSinks.setSelected(config['DOMXSSSinks'])
+                self.cbDOMXSSjQuerySinks.setSelected(config['DOMXSSjQuerySinks'])
+                self.cbSTS.setSelected(config['STS'])
+                self.inSTSMin.text = config['STSMin'] 
+                self.cbXCTO.setSelected(config['XCTO'])
+                self.cbXXP.setSelected(config['XXP'])
+                self.cbRedirToHTTPS.setSelected(config['RedirToHTTPS'])
+                self.cbActiveChecks.setSelected(config['ActiveChecks'])
+                self.cbPrivParam.setSelected(config['PrivParam'])
+                self.cbHostHeader.setSelected(config['HostHeader'])
+                self.setSTSMinimum()
+            except:
+                print("Classical case of \"shouldn't happen\": something went wrong with config restore. Submit a bug or patch and keep your eyes open for Zombies. Something is really strange here.\nConfig contained: " + storedConfig)
         
     ### ITab ###
     def getTabCaption(self):
