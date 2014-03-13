@@ -305,7 +305,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
                     self.helpers,
                     self.callbacks
                     ))
-            elif len(headersXXP) == 1 and int(headersXXP[0][0].group(1)) == 1 and headersXXP[0][0].group(1) != "block":          # Activated but not in block mode
+            elif len(headersXXP) == 1 and int(headersXXP[0][0].group(1)) == 1 and headersXXP[0][0].group(2) != "block":          # Activated but not in block mode
                 scanIssues.append(XXPScanIssue(
                     baseRequestResponse,
                     XXPScanIssue.caseNoBlockMode,
