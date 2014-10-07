@@ -26,10 +26,15 @@ import pickle
 
 STSMinimum = 60 * 60 * 24 * 90            # Minimum for Strict Transport Security: 90 days
 issueTypeDOMXSS = 2097930
+issueNameDOMXSS = "Possible DOM-based Cross-site scripting"
 issueTypeSTS = 5245380
+issueNameSTS = "Strict Transport Security Misconfiguration"
 issueTypeXCTO = 8389890
+issueNameXCTO = "Content Sniffing not disabled"
 issueTypeRedirectFromHTTP2HTTPS = 5244500
+issueNameRedirectFromHTTP2HTTPS = "Redirection from HTTP to HTTPS"
 issueTypeXXP = 5245361
+issueNameXXP = "Browser cross-site scripting filter misconfiguration"
 
 class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
     def registerExtenderCallbacks(self, callbacks):
@@ -40,7 +45,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
 
         # define all checkboxes
         self.cbPassiveChecks = self.defineCheckBox("Passive Scanner Checks")
-        self.cbDOMXSS = self.defineCheckBox("DOM XSS")
+        self.cbDOMXSS = self.defineCheckBox("DOM XSS", False)
         self.cbDOMXSSSources = self.defineCheckBox("Sources", False)
         self.cbDOMXSSSinks = self.defineCheckBox("Sinks")
         self.cbDOMXSSjQuerySinks = self.defineCheckBox("jQuery Sinks", False)
@@ -336,8 +341,8 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
         return scanIssues
 
     def consolidateDuplicateIssues(self, existingIssue, newIssue):
-        if existingIssue.getIssueType() == newIssue.getIssueType():
-            if newIssue.getIssueType() == issueTypeDOMXSS:   # DOMXSS issues are different if response content is different.
+        if existingIssue.getIssueName() == newIssue.getIssueName():
+            if newIssue.getIssueName() == issueNameDOMXSS:   # DOMXSS issues are different if response content is different.
                 responseExisting = existingIssue.getHttpMessages()[0].getResponse()
                 analyzedResponseExisting = self.helpers.analyzeResponse(responseExisting)
                 bodyOffsetExisting = analyzedResponseExisting.getBodyOffset()
@@ -352,7 +357,7 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
                     return -1
                 else:
                     return 0
-            elif newIssue.getIssueType() == issueTypeRedirectFromHTTP2HTTPS: # Redirection issues are different if target URLs differ
+            elif newIssue.getIssueName() == issueNameRedirectFromHTTP2HTTPS: # Redirection issues are different if target URLs differ
                 if existingIssue.getIssueDetail() == newIssue.getIssueDetail():
                     return -1
                 else:
@@ -373,7 +378,7 @@ class DOMXSSScanIssue(IScanIssue):
         return self.findingUrl
 
     def getIssueName(self):
-        return "Possible DOM-based Cross-site scripting"
+        return issueNameDOMXSS
 
     def getIssueType(self):
         return issueTypeDOMXSS
@@ -449,7 +454,7 @@ class STSScanIssue(IScanIssue):
         return self.findingUrl
 
     def getIssueName(self):
-        return "Strict Transport Security Misconfiguration"
+        return issueNameSTS
 
     def getIssueType(self):
         return issueTypeSTS
@@ -518,7 +523,7 @@ class RedirectFromHTTP2HTTPSScanIssue(IScanIssue):
         return self.findingUrl
 
     def getIssueName(self):
-        return "Redirection from HTTP to HTTPS"
+        return issueNameRedirectFromHTTP2HTTPS
 
     def getIssueType(self):
         return issueTypeRedirectFromHTTP2HTTPS
@@ -586,7 +591,7 @@ class XXPScanIssue(IScanIssue):
         return self.findingUrl
 
     def getIssueName(self):
-        return "Browser cross-site scripting filter misconfiguration"
+        return issueNameXXP
 
     def getIssueType(self):
         return issueTypeXXP
@@ -647,7 +652,7 @@ class XCTOScanIssue(IScanIssue):
         return self.findingUrl
 
     def getIssueName(self):
-        return "Content Sniffing not disabled"
+        return issueNameXCTO
 
     def getIssueType(self):
         return issueTypeXCTO
