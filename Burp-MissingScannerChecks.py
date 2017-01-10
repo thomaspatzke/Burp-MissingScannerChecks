@@ -1,5 +1,5 @@
 # Burp Additonal Scanner Checks Extension
-# Copyright 2013 Thomas Skora <thomas@skora.net>
+# Copyright 2017 Thomas Patzke <thomas@patzke.org>
 #
 # Parts of this code (DOMXSS REs) are based on work licensed under LGPL
 # and can be found here:
