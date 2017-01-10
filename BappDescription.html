@@ -1,0 +1,14 @@
+<p>This extension provides some additional passive Scanner checks:</p>
+<ul>
+    <li>DOM-based XSS (regular expressions are based on those from https://code.google.com/p/domxsswiki/wiki/FindingDOMXSS)</li>
+    <li>Missing HTTP headers:
+    <ul>
+        <li>Strict-Transport-Security</li>
+        <li>X-Content-Type-Options: nosniff</li>
+        <li>X-XSS-Protection</li>
+    </ul>
+    </li>
+    <li>Multiple occurrences of the checked headers</li>
+    <li>Redirection from HTTP to HTTPS</li>
+</ul>
+<p>All checks can be enabled separately in an extension tab and a default config can be stored.</p>
