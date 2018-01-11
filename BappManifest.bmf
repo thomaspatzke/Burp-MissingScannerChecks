@@ -1,6 +1,7 @@
 Uuid: a158fd3fc9394253be3aa0bc4c181d1f
 ExtensionType: 2
 Name: Additional Scanner Checks
+RepoName: additional-scanner-checks
 ScreenVersion: 1.3
 SerialVersion: 4
 MinPlatformVersion: 0
