@@ -471,7 +471,7 @@ class STSScanIssue(IScanIssue):
         <ul> \
         <li>If the web application mixes usage of HTTP and HTTPS, an attacker can manipulate pages in the unsecured area of the application or change redirection targets \
         in a manner that the switch to the secured page is not performed or done in a manner, that the attacker remains between client and server.</li> \
-        <li>If there is no HTTP server, an attacker in the same network could simulate a HTTP server and motivate the user to click on a prepared URL by a scoial \
+        <li>If there is no HTTP server, an attacker in the same network could simulate a HTTP server and motivate the user to click on a prepared URL by a social \
         engineering attack.</li> \
         </ul> \
         <p>The protection is effective only for the given amount of time. Multiple occurrence of this header could cause undefined behaviour in browsers and should be avoided.</p>"
