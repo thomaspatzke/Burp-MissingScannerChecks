@@ -616,7 +616,7 @@ class XXPScanIssue(IScanIssue):
     def getIssueDetail(self):
         msg = None
         if self.case == self.caseNoHeader:
-            msg = "No X-XSS-Protection header was set in the response. This means that the browser uses default behaviour that detection of a cross-site scripting attack never prevents rendering."
+            msg = "No X-XSS-Protection header was set in the response. This means that the browser uses default behavior that detection of a cross-site scripting attack never prevents rendering."
         elif self.case == self.caseNoBlockMode:
             msg = "A X-XSS-Protection header is set and XSS protection is enabled, but blocking mode is not set."
         elif self.case == self.caseMultipleHeaders:
