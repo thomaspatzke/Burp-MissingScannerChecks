@@ -3,7 +3,7 @@ ExtensionType: 2
 Name: Additional Scanner Checks
 RepoName: additional-scanner-checks
 ScreenVersion: 1.3
-SerialVersion: 4
+SerialVersion: 5
 MinPlatformVersion: 0
 ProOnly: True
 Author: Thomas Patzke
