@@ -63,9 +63,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
         self.cbXCTO = self.defineCheckBox("Content Sniffing")
         self.cbXXP = self.defineCheckBox("Client-side XSS Filter Configuration")
         self.cbRedirToHTTPS = self.defineCheckBox("Redirection from HTTP to HTTPS")
-        self.cbActiveChecks = self.defineCheckBox("Active Scanner Checks", True, False)
-        self.cbPrivParam = self.defineCheckBox("Privilege Escalation parameters", True, False)
-        self.cbHostHeader = self.defineCheckBox("Host Header", True, False)
         self.btnSave = JButton("Set as default", actionPerformed=self.saveConfig)
         self.btnRestore = JButton("Restore", actionPerformed=self.restoreConfig)
         self.grpConfig = JPanel()
@@ -83,7 +80,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
             layout.createSequentialGroup()
             .addGroup(layout.createParallelGroup()
                       .addComponent(self.cbPassiveChecks)
-                      .addComponent(self.cbActiveChecks)
                       )
             .addGroup(layout.createParallelGroup()
                       .addComponent(self.cbDOMXSS)
@@ -91,8 +87,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
                       .addComponent(self.cbXCTO)
                       .addComponent(self.cbXXP)
                       .addComponent(self.cbRedirToHTTPS)
-                      .addComponent(self.cbPrivParam)
-                      .addComponent(self.cbHostHeader)
                       )
             .addGroup(layout.createParallelGroup()
                       .addComponent(self.grpDOMXSSSettings, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
@@ -114,11 +108,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
             .addComponent(self.cbXCTO)
             .addComponent(self.cbXXP)
             .addComponent(self.cbRedirToHTTPS)
-            .addGroup(layout.createParallelGroup()
-                      .addComponent(self.cbActiveChecks)
-                      .addComponent(self.cbPrivParam)
-                      )
-            .addComponent(self.cbHostHeader)
             .addComponent(self.grpConfig, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE)
             )
 
@@ -161,9 +150,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
             'XCTO': self.cbXCTO.isSelected(),
             'XXP': self.cbXXP.isSelected(),
             'RedirToHTTPS': self.cbRedirToHTTPS.isSelected(),
-            'ActiveChecks': self.cbActiveChecks.isSelected(),
-            'PrivParam': self.cbPrivParam.isSelected(),
-            'HostHeader': self.cbHostHeader.isSelected(),
             }
         self.callbacks.saveExtensionSetting("config", pickle.dumps(config))
 
@@ -182,9 +168,6 @@ class BurpExtender(IBurpExtender, IScannerCheck, IScanIssue, ITab):
                 self.cbXCTO.setSelected(config['XCTO'])
                 self.cbXXP.setSelected(config['XXP'])
                 self.cbRedirToHTTPS.setSelected(config['RedirToHTTPS'])
-                self.cbActiveChecks.setSelected(config['ActiveChecks'])
-                self.cbPrivParam.setSelected(config['PrivParam'])
-                self.cbHostHeader.setSelected(config['HostHeader'])
                 self.setSTSMinimum()
             except:
                 print("Classical case of \"shouldn't happen\": something went wrong with config restore. Submit a bug or patch and keep your eyes open for Zombies. Something is really strange here.\nConfig contained: " + storedConfig)
