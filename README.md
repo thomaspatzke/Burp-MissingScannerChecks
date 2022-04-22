@@ -1,3 +1,9 @@
+# IMPORTANT: Archived Project
+
+This project is not maintained anymore, please fork and do changes on your own.
+
+# Burp Missing Scanner Checks
+
 This burp extension implements some passive scanner checks which are
 missing in Burp suite:
 
@@ -17,8 +23,7 @@ missing in Burp suite:
 
 All checks can be enabled separately in an own extension tab and a default config can be stored.
 
-TODO
-====
+## TODO
 
 * See TODO markers in the code.
 
